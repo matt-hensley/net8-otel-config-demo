@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -7,7 +8,6 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.Configure<OtlpExporterOptions>(builder.Configuration.GetSection("OpenTelemetry:otlp"));
 
 var resourceBuilder = ResourceBuilder.CreateDefault()
     .AddService(serviceName: Assembly.GetExecutingAssembly()?.GetName().Name ?? "unknown-service",
@@ -15,7 +15,7 @@ var resourceBuilder = ResourceBuilder.CreateDefault()
         serviceVersion: Assembly.GetExecutingAssembly()?.GetName().Version?.ToString() ?? "0.0.0",
         autoGenerateServiceInstanceId: true);
 
-builder.Services.AddOpenTelemetry()
+builder.Services.AddOpenTelemetry().UseOtlpExporter()
     .WithMetrics(builder =>
     {
         builder.SetResourceBuilder(resourceBuilder);
@@ -23,29 +23,17 @@ builder.Services.AddOpenTelemetry()
         //builder.AddConsoleExporter();
         builder.AddProcessInstrumentation();
         builder.AddRuntimeInstrumentation();
-        builder.AddOtlpExporter(options =>
-        {
-            options.Endpoint = new Uri(options.Endpoint, "/otlp/v1/metrics");
-        });
     })
     .WithTracing(builder =>
     {
         builder.SetResourceBuilder(resourceBuilder);
         builder.AddAspNetCoreInstrumentation();
         //builder.AddConsoleExporter();
-        builder.AddOtlpExporter(options =>
-        {
-            options.Endpoint = new Uri(options.Endpoint, "/otlp/v1/traces");
-        });
     });
 builder.Logging.AddOpenTelemetry(logging =>
 {
     logging.SetResourceBuilder(resourceBuilder);
     //logging.AddConsoleExporter();
-    logging.AddOtlpExporter(options =>
-    {
-        options.Endpoint = new Uri(options.Endpoint, "/otlp/v1/logs");
-    });
 });
 
 // Add services to the container.
